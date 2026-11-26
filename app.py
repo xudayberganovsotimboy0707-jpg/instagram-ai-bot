@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 from flask import Flask, request, jsonify
 from google import genai
 
@@ -16,11 +17,22 @@ def ask_gemini(user_text: str) -> str:
         "Foydalanuvchi qaysi tilda yozsa, o'sha tilda (asosan o'zbek tilida) tabiiy va aniq javob bering.\n\n"
         f"Foydalanuvchi xabari: {user_text}"
     )
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt,
-    )
-    return (response.text or "Kechirasiz, hozircha javob bera olmadim.").strip()
+
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt,
+            )
+            text = (response.text or "").strip()
+            if text:
+                return text
+        except Exception as e:
+            print(f"Gemini xatosi (urinish {attempt + 1}/3): {e}")
+            if attempt < 2:
+                time.sleep(2)
+
+    return "Hozir javob tayyorlashda vaqtinchalik kechikish bo'ldi, birozdan so'ng qayta yozib ko'ring."
 
 def send_instagram_message(recipient_id: str, message_text: str):
     if not INSTAGRAM_ACCESS_TOKEN:
